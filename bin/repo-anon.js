@@ -2,9 +2,10 @@
 
 const { program } = require('commander');
 const { anonymize, deanonymize } = require('./../lib/processor');
+const { version } = require('../package.json');
 
 program
-  .version('1.0.0')
+  .version(version)
   .description('Repository Anonymizer CLI');
 
 program
