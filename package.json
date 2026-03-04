@@ -1,0 +1,26 @@
+{
+  "name": "@your_gitlab_namespace/repo-anon",
+  "version": "1.0.0",
+  "description": "CLI tool to anonymize/de-anonymize repositories.",
+  "main": "index.js",
+  "bin": {
+    "repo-anon": "bin/repo-anon.js"
+  },
+  "dependencies": {
+    "commander": "^13.1.0"
+  },
+  "scripts": {
+    "test": "jest",
+    "lint": "eslint ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.2",
+    "globals": "^17.4.0",
+    "jest": "^30.2.0"
+  }
+}
