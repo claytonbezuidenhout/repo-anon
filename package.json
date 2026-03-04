@@ -1,6 +1,6 @@
 {
-  "name": "@your_gitlab_namespace/repo-anon",
-  "version": "1.0.0",
+  "name": "repo-anon",
+  "version": "0.1.0",
   "description": "CLI tool to anonymize/de-anonymize repositories.",
   "main": "index.js",
   "bin": {
