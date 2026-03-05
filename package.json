@@ -1,6 +1,6 @@
 {
   "name": "repo-anon",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "CLI tool to anonymize/de-anonymize repositories.",
   "main": "index.js",
   "bin": {
@@ -11,7 +11,8 @@
   },
   "scripts": {
     "test": "jest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "start": "node bin/repo-anon.js"
   },
   "keywords": [],
   "author": "",

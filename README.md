@@ -5,7 +5,8 @@ A Node.js CLI tool to anonymize and de-anonymize files in a repository based on 
 ## Features
 
 - **Anonymize**: Replaces sensitive phrases with configured placeholders.
-- **De-anonymize**: Restores original phrases from placeholders.
+- **Replacement History**: Writes `.repo-anon-history.json` with ordered per-file replacement events (including counts).
+- **De-anonymize**: Replays replacement history in reverse order, then runs a full phrase-based pass to also restore new placeholder usage added later.
 - **Recursive**: Traverses through all project directories (ignoring `node_modules`, `.git`, etc.).
 - **CI/CD Ready**: Includes GitLab pipeline configuration for publishing to the GitLab package registry.
 
@@ -23,10 +24,16 @@ npm install -g @your_gitlab_namespace/repo-anon
 
    ```json
    {
-     "CompanyA": "ANON_COMPANY_A", 
-     "BrandX": "ANON_BRAND_X"
+     "CompanyA": "ANON_COMPANY_A",
+     "ck": {
+       "placeholder": "bb",
+       "wordReplace": true
+     }
    }
    ```
+
+   String values keep the old behavior and replace matches anywhere inside a word.
+   Object values let you opt into whole-word matching with `wordReplace: true`.
 
 2. Run the anonymization command:
 
@@ -34,11 +41,15 @@ npm install -g @your_gitlab_namespace/repo-anon
    repo-anon anonymize
    ```
 
+   This also writes `.repo-anon-history.json` in the working directory.
+
 3. Revert changes (if needed):
 
    ```bash
    repo-anon deanonymize
    ```
+
+   De-anonymization uses the history file first to reverse exact prior replacements in order, then applies phrase-based de-anonymization globally so newly introduced placeholders are also restored.
 
 ## Development
 
