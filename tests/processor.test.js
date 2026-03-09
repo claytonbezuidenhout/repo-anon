@@ -1,123 +1,129 @@
-const {
-  processContent,
-  applyReverseReplacementHistory,
-} = require('../lib/processor');
+const fs = require('fs');
+const path = require('path');
+const Anonymizer = require('../lib/processor');
 
-describe('repo-anon processor', () => {
-  test('should anonymize content', () => {
-    const phrases = { company: 'anon' };
-    const content = 'my company is here';
-    const expected = 'my anon is here';
-    const result = processContent(content, phrases);
-    expect(result).toBe(expected);
+jest.mock('fs');
+
+describe('Anonymizer', () => {
+  const mockConfig = {
+    mappings: {
+      'Acme Corp': 'COMPANY_A',
+      'John Doe': 'USER_1',
+      'secret-key-123': 'SECRET_KEY'
+    }
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  test('should deanonymize content', () => {
-    const phrases = { company: 'anon' };
-    const content = 'my anon is here';
-    const expected = 'my company is here';
-    const result = processContent(content, phrases, true);
-    expect(result).toBe(expected);
+  describe('constructor and loadConfig', () => {
+    it('should load config from default path if it exists', () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify(mockConfig));
+      
+      const anonymizer = new Anonymizer();
+      expect(anonymizer.mappings).toEqual(mockConfig.mappings);
+    });
+
+    it('should use fallback path if default path does not exist', () => {
+      fs.existsSync.mockImplementation((p) => p.includes('fallback'));
+      fs.readFileSync.mockReturnValue(JSON.stringify(mockConfig));
+      
+      // We need to trigger the fallback logic. 
+      // The code checks if configPath exists, if not it tries fallbackPath.
+      fs.existsSync.mockReturnValueOnce(false).mockReturnValueOnce(true);
+      
+      const anonymizer = new Anonymizer('missing.json');
+      expect(anonymizer.mappings).toEqual(mockConfig.mappings);
+    });
+
+    it('should handle empty or missing config file', () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue('');
+      
+      const anonymizer = new Anonymizer();
+      expect(anonymizer.mappings).toEqual({});
+    });
+
+    it('should handle invalid JSON in config file', () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue('invalid json');
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      
+      const anonymizer = new Anonymizer();
+      expect(anonymizer.mappings).toEqual({});
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
   });
 
-  test('should replace inside words by default', () => {
-    const phrases = { th: 'BB' };
-    const content = 'th with other';
-    const expected = 'BB wiBB oBBer';
-    const result = processContent(content, phrases);
-    expect(result).toBe(expected);
+  describe('anonymize', () => {
+    let anonymizer;
+
+    beforeEach(() => {
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify(mockConfig));
+      anonymizer = new Anonymizer();
+    });
+
+    it('should return same text if null or empty', () => {
+      expect(anonymizer.anonymize(null)).toBeNull();
+      expect(anonymizer.anonymize('')).toBe('');
+    });
+
+    it('should replace phrases with placeholders', () => {
+      const input = 'Welcome to Acme Corp, John Doe!';
+      const expected = 'Welcome to COMPANY_A, USER_1!';
+      expect(anonymizer.anonymize(input)).toBe(expected);
+    });
+
+    it('should handle overlapping phrases by length (longest first)', () => {
+      anonymizer.mappings = {
+        'Acme': 'SHORT',
+        'Acme Corp': 'LONG'
+      };
+      const input = 'Welcome to Acme Corp';
+      expect(anonymizer.anonymize(input)).toBe('Welcome to LONG');
+    });
+
+    it('should escape regex special characters in phrases', () => {
+      anonymizer.mappings = {
+        'user.name': 'USER_NAME'
+      };
+      const input = 'The user.name is here';
+      expect(anonymizer.anonymize(input)).toBe('The USER_NAME is here');
+    });
   });
 
-  test('should only replace standalone words when wordReplace is true', () => {
-    const phrases = {
-      ck: {
-        placeholder: 'bb',
-        wordReplace: true,
-      },
-    };
-    const content = 'ck back sack (ck) ck.';
-    const expected = 'bb back sack (bb) bb.';
-    const result = processContent(content, phrases);
-    expect(result).toBe(expected);
-  });
+  describe('deanonymize', () => {
+    let anonymizer;
 
-  test('should only deanonymize standalone placeholders when wordReplace is true', () => {
-    const phrases = {
-      ck: {
-        placeholder: 'bb',
-        wordReplace: true,
-      },
-    };
-    const content = 'bb babb stubb (bb) bb.';
-    const expected = 'ck babb stubb (ck) ck.';
-    const result = processContent(content, phrases, true);
-    expect(result).toBe(expected);
-  });
+    beforeEach(() => {
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify(mockConfig));
+      anonymizer = new Anonymizer();
+    });
 
-  test('should return null if no change', () => {
-    const phrases = { company: 'anon' };
-    const content = 'nothing here';
-    const result = processContent(content, phrases);
-    expect(result).toBeNull();
-  });
+    it('should return same text if null or empty', () => {
+      expect(anonymizer.deanonymize(null)).toBeNull();
+      expect(anonymizer.deanonymize('')).toBe('');
+    });
 
-  test('should track ordered replacements during anonymize', () => {
-    const phrases = {
-      company: 'ANON_COMPANY',
-      project: 'ANON_PROJECT',
-    };
-    const content = 'company project company';
+    it('should replace placeholders with original phrases', () => {
+      const input = 'Welcome to COMPANY_A, USER_1!';
+      const expected = 'Welcome to Acme Corp, John Doe!';
+      expect(anonymizer.deanonymize(input)).toBe(expected);
+    });
 
-    const result = processContent(content, phrases, false, { trackHistory: true });
-
-    expect(result.content).toBe('ANON_COMPANY ANON_PROJECT ANON_COMPANY');
-    expect(result.replacements).toEqual([
-      {
-        search: 'company',
-        replace: 'ANON_COMPANY',
-        wordReplace: false,
-        count: 2,
-      },
-      {
-        search: 'project',
-        replace: 'ANON_PROJECT',
-        wordReplace: false,
-        count: 1,
-      },
-    ]);
-  });
-
-  test('should replay replacement history in reverse using recorded counts', () => {
-    const content = 'ANON_COMPANY x ANON_COMPANY ANON_COMPANY';
-    const replacements = [
-      {
-        search: 'company',
-        replace: 'ANON_COMPANY',
-        wordReplace: false,
-        count: 2,
-      },
-    ];
-
-    const restored = applyReverseReplacementHistory(content, replacements);
-
-    expect(restored).toBe('company x company ANON_COMPANY');
-  });
-
-  test('should support additional deanonymization after history replay', () => {
-    const phrases = { company: 'ANON_COMPANY' };
-    const content = 'ANON_COMPANY x ANON_COMPANY ANON_COMPANY';
-    const replacements = [
-      {
-        search: 'company',
-        replace: 'ANON_COMPANY',
-        wordReplace: false,
-        count: 2,
-      },
-    ];
-
-    const restoredFromHistory = applyReverseReplacementHistory(content, replacements);
-    const fullyRestored = processContent(restoredFromHistory, phrases, true);
-
-    expect(fullyRestored).toBe('company x company company');
+    it('should handle overlapping placeholders by length', () => {
+      anonymizer.mappings = {
+        'Original': 'PLACEHOLDER',
+        'Something Else': 'PLACEHOLDER_LONG'
+      };
+      const input = 'Testing PLACEHOLDER_LONG and PLACEHOLDER';
+      const expected = 'Testing Something Else and Original';
+      expect(anonymizer.deanonymize(input)).toBe(expected);
+    });
   });
 });

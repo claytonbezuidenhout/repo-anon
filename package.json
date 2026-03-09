@@ -1,18 +1,31 @@
 {
   "name": "repo-anon",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "CLI tool to anonymize/de-anonymize repositories.",
-  "main": "index.js",
+  "main": "bin/repo-anon.js",
   "bin": {
     "repo-anon": "bin/repo-anon.js"
   },
-  "dependencies": {
-    "commander": "^13.1.0"
-  },
   "scripts": {
-    "test": "jest",
+    "test": "jest --coverage",
     "lint": "eslint .",
     "start": "node bin/repo-anon.js"
+  },
+  "jest": {
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80,
+        "statements": 80
+      }
+    },
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "clover",
+      "cobertura"
+    ]
   },
   "keywords": [],
   "author": "",
