@@ -2,13 +2,13 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const Anonymizer = require('./processor');
+const Anonymizer = require('../lib/processor');
 
 const helpMessage = `
 Anonymization Tool - CLI
 
 Usage:
-  node index.js <action> [input] [options]
+  node repo-anon.js <action> [input] [options]
 
 Actions:
   anonymize: The action to perform (obscure phrases).
@@ -27,9 +27,9 @@ Options:
   --overwrite: Overwrite existing files (only with -d or -f).
 
 Examples:
-  node index.js anonymize -d ./src -p "**/*.js" -o ./anon_src -r
-  node index.js anonymize "Meeting with Acme Corp"
-  cat document.txt | node index.js anonymize
+  node repo-anon.js anonymize -d ./src -p "**/*.js" -o ./anon_src -r
+  node repo-anon.js anonymize "Meeting with Acme Corp"
+  cat document.txt | node repo-anon.js anonymize
 `;
 
 async function readFromStdin() {
@@ -193,7 +193,11 @@ async function run() {
   }
 }
 
-run().catch(err => {
-  console.error(`An unexpected error occurred: ${err.message}`);
-  process.exit(1);
-});
+module.exports = { run };
+
+if (require.main === module) {
+  run().catch(err => {
+    console.error(`An unexpected error occurred: ${err.message}`);
+    process.exit(1);
+  });
+}
