@@ -1,13 +1,10 @@
 {
   "name": "repo-anon",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "CLI tool to anonymize/de-anonymize repositories.",
   "main": "index.js",
   "bin": {
     "repo-anon": "bin/repo-anon.js"
-  },
-  "dependencies": {
-    "commander": "^13.1.0"
   },
   "scripts": {
     "test": "jest",
