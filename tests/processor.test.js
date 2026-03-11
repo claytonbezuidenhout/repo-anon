@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 const Anonymizer = require('../lib/processor');
 
 jest.mock('fs');
@@ -24,6 +23,18 @@ describe('Anonymizer', () => {
       
       const anonymizer = new Anonymizer();
       expect(anonymizer.mappings).toEqual(mockConfig.mappings);
+      expect(anonymizer.ignore).toEqual([]);
+    });
+
+    it('should load ignore patterns from config file', () => {
+      fs.existsSync.mockReturnValue(true);
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        ...mockConfig,
+        ignore: ['./.*', '**/*.log']
+      }));
+
+      const anonymizer = new Anonymizer();
+      expect(anonymizer.ignore).toEqual(['./.*', '**/*.log']);
     });
 
     it('should use fallback path if default path does not exist', () => {
@@ -44,6 +55,7 @@ describe('Anonymizer', () => {
       
       const anonymizer = new Anonymizer();
       expect(anonymizer.mappings).toEqual({});
+      expect(anonymizer.ignore).toEqual([]);
     });
 
     it('should handle invalid JSON in config file', () => {
@@ -53,6 +65,7 @@ describe('Anonymizer', () => {
       
       const anonymizer = new Anonymizer();
       expect(anonymizer.mappings).toEqual({});
+      expect(anonymizer.ignore).toEqual([]);
       expect(consoleSpy).toHaveBeenCalled();
       consoleSpy.mockRestore();
     });

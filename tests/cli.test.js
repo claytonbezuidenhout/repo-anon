@@ -27,6 +27,7 @@ describe('CLI (bin/repo-anon.js)', () => {
     // Default Anonymizer mock behavior
     Anonymizer.prototype.anonymize.mockImplementation(text => `anon(${text})`);
     Anonymizer.prototype.deanonymize.mockImplementation(text => `deanon(${text})`);
+    Anonymizer.prototype.ignore = [];
   });
 
   afterEach(() => {
@@ -133,6 +134,28 @@ describe('CLI (bin/repo-anon.js)', () => {
     // Should only process file1.js
     expect(fs.readFileSync).toHaveBeenCalledTimes(1);
     expect(fs.readFileSync).toHaveBeenCalledWith(expect.stringContaining('file1.js'), 'utf8');
+  });
+
+  it('should ignore dotfiles and dot-directories from config ignore patterns', async () => {
+    const dirPath = 'src';
+    Anonymizer.prototype.ignore = ['./.*'];
+    fs.existsSync.mockReturnValue(true);
+    fs.lstatSync.mockImplementation((p) => ({
+      isFile: () => false,
+      isDirectory: () => p === dirPath
+    }));
+    fs.readdirSync
+      .mockReturnValueOnce(['.env', '.git', 'visible.txt'])
+      .mockReturnValueOnce(['hidden.txt']);
+    fs.statSync.mockImplementation((p) => ({
+      isDirectory: () => p.endsWith('.git')
+    }));
+    fs.readFileSync.mockReturnValue('content');
+
+    await runCLI(['anonymize', '-d', dirPath, '-r']);
+
+    expect(fs.readFileSync).toHaveBeenCalledTimes(1);
+    expect(fs.readFileSync).toHaveBeenCalledWith(expect.stringContaining('visible.txt'), 'utf8');
   });
 
   it('should deanonymize text input', async () => {
