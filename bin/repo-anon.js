@@ -41,11 +41,11 @@ async function readFromStdin() {
 }
 
 function isExistingFile(p) {
-  try { return fs.existsSync(p) && fs.lstatSync(p).isFile(); } catch (e) { return false; }
+  try { return fs.existsSync(p) && fs.lstatSync(p).isFile(); } catch { return false; }
 }
 
 function isExistingDir(p) {
-  try { return fs.existsSync(p) && fs.lstatSync(p).isDirectory(); } catch (e) { return false; }
+  try { return fs.existsSync(p) && fs.lstatSync(p).isDirectory(); } catch { return false; }
 }
 
 // Minimal glob-to-regex converter for pattern matching
@@ -61,12 +61,32 @@ function globToRegex(glob) {
   return new RegExp(`^${re}$`);
 }
 
-function walkSync(dir, fileList = [], recursive = true) {
+function shouldMatchPattern(patternRegex, candidatePath, baseName) {
+  if (!patternRegex) return false;
+
+  return patternRegex.test(candidatePath)
+    || patternRegex.test(`./${candidatePath}`)
+    || patternRegex.test(baseName)
+    || patternRegex.test(`./${baseName}`);
+}
+
+function shouldIgnore(relativePath, ignoreRegexes = []) {
+  const baseName = path.posix.basename(relativePath);
+  return ignoreRegexes.some((ignoreRegex) => shouldMatchPattern(ignoreRegex, relativePath, baseName));
+}
+
+function walkSync(dir, fileList = [], recursive = true, rootDir = dir, ignoreRegexes = []) {
   const files = fs.readdirSync(dir);
   for (const file of files) {
     const filePath = path.join(dir, file);
+    const relativePath = path.relative(rootDir, filePath).replace(/\\/g, '/');
+
+    if (shouldIgnore(relativePath, ignoreRegexes)) {
+      continue;
+    }
+
     if (fs.statSync(filePath).isDirectory()) {
-      if (recursive) walkSync(filePath, fileList, recursive);
+      if (recursive) walkSync(filePath, fileList, recursive, rootDir, ignoreRegexes);
     } else {
       fileList.push(filePath);
     }
@@ -120,17 +140,18 @@ async function run() {
 
   const anonymizer = new Anonymizer(configPath);
   const patternRegex = globToRegex(pattern);
+  const ignoreRegexes = (anonymizer.ignore || []).map(globToRegex).filter(Boolean);
 
   // Determine what to process
   if (explicitDirPath || (inputArg && isExistingDir(inputArg))) {
     const dirToProcess = explicitDirPath || inputArg;
-    const files = walkSync(dirToProcess, [], recursive || !!explicitDirPath);
+    const files = walkSync(dirToProcess, [], recursive || !!explicitDirPath, dirToProcess, ignoreRegexes);
     
     for (const filePath of files) {
       // Relative path for pattern matching and out-dir structure
       const relativePath = path.relative(dirToProcess, filePath).replace(/\\/g, '/');
       
-      if (patternRegex && !patternRegex.test(relativePath) && !patternRegex.test(path.basename(filePath))) {
+      if (patternRegex && !shouldMatchPattern(patternRegex, relativePath, path.basename(filePath))) {
         continue;
       }
 
@@ -150,7 +171,7 @@ async function run() {
     }
   } else {
     // Single file or direct text or stdin
-    let text = '';
+    let text;
     let isFile = false;
     let targetPath = explicitFilePath;
 
